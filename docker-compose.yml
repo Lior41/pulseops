@@ -1,0 +1,66 @@
+name: pulseops
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql://pulseops:${POSTGRES_PASSWORD:-pulseops_local_only}@db:5432/pulseops
+  AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env before starting}
+  AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+  AUTH_TRUST_HOST: "true"
+  DEMO_MODE: ${DEMO_MODE:-true}
+  DEMO_PASSWORD: ${DEMO_PASSWORD:-PulseOps-Demo-2026!}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: pulseops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pulseops_local_only}
+      POSTGRES_DB: pulseops
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulseops -d pulseops"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+  setup:
+    build:
+      context: .
+      target: operations
+    environment: *app-environment
+    command: ["sh", "-c", "npm run db:migrate && npm run db:seed"]
+    depends_on:
+      db:
+        condition: service_healthy
+  app:
+    build:
+      context: .
+      target: runner
+    environment: *app-environment
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+    restart: unless-stopped
+  simulator:
+    build:
+      context: .
+      target: operations
+    environment: *app-environment
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+volumes:
+  postgres-data:
