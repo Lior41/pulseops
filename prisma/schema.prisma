@@ -1,0 +1,351 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  FALSE_POSITIVE
+}
+
+enum IncidentStatus {
+  OPEN
+  INVESTIGATING
+  CONTAINED
+  RESOLVED
+}
+
+enum EventType {
+  NORMAL_LOGIN
+  FAILED_LOGIN
+  NEW_DEVICE
+  NEW_COUNTRY
+  BRUTE_FORCE
+  PRIVILEGE_ESCALATION
+  MALWARE_DETECTED
+  SUSPICIOUS_DOWNLOAD
+  API_ABUSE
+}
+
+enum EventCategory {
+  AUTHENTICATION
+  IDENTITY
+  ENDPOINT
+  NETWORK
+  DATA
+  API
+}
+
+enum AssetStatus {
+  ONLINE
+  OFFLINE
+  UNKNOWN
+}
+
+enum AnalysisMode {
+  LIVE
+  DEMO
+  FALLBACK
+}
+
+model User {
+  id               String            @id @default(uuid())
+  name             String
+  email            String            @unique
+  emailVerified    DateTime?
+  image            String?
+  passwordHash     String?
+  role             UserRole          @default(VIEWER)
+  isActive         Boolean           @default(true)
+  sessionVersion   Int               @default(1)
+  preferences      Json              @default("{}")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  accounts         Account[]
+  sessions         Session[]
+  ownedIncidents   Incident[]        @relation("IncidentOwner")
+  createdIncidents Incident[]        @relation("IncidentCreator")
+  comments         IncidentComment[]
+  notifications    Notification[]
+  audits           AuditLog[]
+  analyses         AIAnalysis[]
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MonitoredIdentity {
+  id               String          @id @default(uuid())
+  name             String
+  email            String          @unique
+  department       String
+  homeCountry      String
+  knownCountries   String[]
+  isActive         Boolean         @default(true)
+  lastLoginAt      DateTime?
+  lastLoginCountry String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  assets           Asset[]
+  events           SecurityEvent[]
+  alerts           Alert[]
+}
+
+model Asset {
+  id              String             @id @default(uuid())
+  hostname        String             @unique
+  operatingSystem String
+  status          AssetStatus        @default(ONLINE)
+  ipAddress       String
+  lastSeenAt      DateTime?
+  ownerId         String?
+  owner           MonitoredIdentity? @relation(fields: [ownerId], references: [id])
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  events          SecurityEvent[]
+}
+
+model SecurityEvent {
+  id            String             @id @default(uuid())
+  sequence      BigInt             @unique @default(autoincrement())
+  source        String
+  sourceEventId String
+  type          EventType
+  category      EventCategory
+  severity      Severity
+  occurredAt    DateTime
+  ingestedAt    DateTime           @default(now())
+  identityId    String?
+  identity      MonitoredIdentity? @relation(fields: [identityId], references: [id])
+  assetId       String?
+  asset         Asset?             @relation(fields: [assetId], references: [id])
+  ipAddress     String?
+  countryCode   String?
+  metadata      Json               @default("{}")
+  simulated     Boolean            @default(true)
+  alerts        AlertEvent[]
+  incidents     IncidentEvent[]
+
+  @@unique([source, sourceEventId])
+  @@index([occurredAt, id])
+  @@index([identityId, type, occurredAt])
+  @@index([ipAddress, type, occurredAt])
+  @@index([assetId, occurredAt])
+}
+
+model Alert {
+  id               String             @id @default(uuid())
+  reference        String             @unique
+  title            String
+  description      String
+  severity         Severity
+  status           AlertStatus        @default(OPEN)
+  category         EventCategory
+  ruleId           String
+  ruleVersion      Int                @default(1)
+  subjectKey       String
+  deduplicationKey String             @unique
+  suppressionUntil DateTime
+  identityId       String?
+  identity         MonitoredIdentity? @relation(fields: [identityId], references: [id])
+  sourceIp         String?
+  countryCode      String?
+  incidentId       String?
+  incident         Incident?          @relation(fields: [incidentId], references: [id])
+  firstSeenAt      DateTime
+  lastSeenAt       DateTime
+  resolvedAt       DateTime?
+  resolutionReason String?
+  version          Int                @default(1)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  events           AlertEvent[]
+  analyses         AIAnalysis[]
+  notifications    Notification[]
+
+  @@index([status, severity, createdAt, id])
+  @@index([ruleId, subjectKey, suppressionUntil])
+  @@index([identityId, createdAt])
+  @@index([incidentId])
+}
+
+model AlertEvent {
+  alertId  String
+  eventId  String
+  linkedAt DateTime      @default(now())
+  alert    Alert         @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  event    SecurityEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@id([alertId, eventId])
+}
+
+model Incident {
+  id                String            @id @default(uuid())
+  reference         String            @unique
+  title             String
+  description       String
+  severity          Severity
+  status            IncidentStatus    @default(OPEN)
+  ownerId           String?
+  owner             User?             @relation("IncidentOwner", fields: [ownerId], references: [id])
+  createdById       String
+  createdBy         User              @relation("IncidentCreator", fields: [createdById], references: [id])
+  resolvedAt        DateTime?
+  resolutionSummary String?
+  version           Int               @default(1)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  alerts            Alert[]
+  events            IncidentEvent[]
+  comments          IncidentComment[]
+  notifications     Notification[]
+
+  @@index([status, severity, createdAt, id])
+  @@index([ownerId, updatedAt])
+}
+
+model IncidentEvent {
+  incidentId String
+  eventId    String
+  linkedAt   DateTime      @default(now())
+  incident   Incident      @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  event      SecurityEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@id([incidentId, eventId])
+}
+
+model IncidentComment {
+  id         String   @id @default(uuid())
+  incidentId String
+  authorId   String
+  body       String
+  createdAt  DateTime @default(now())
+  incident   Incident @relation(fields: [incidentId], references: [id])
+  author     User     @relation(fields: [authorId], references: [id])
+
+  @@index([incidentId, createdAt])
+}
+
+model AIAnalysis {
+  id            String       @id @default(uuid())
+  alertId       String
+  requestedById String
+  mode          AnalysisMode
+  model         String?
+  promptVersion String
+  evidenceHash  String
+  result        Json
+  createdAt     DateTime     @default(now())
+  alert         Alert        @relation(fields: [alertId], references: [id])
+  requestedBy   User         @relation(fields: [requestedById], references: [id])
+
+  @@index([alertId, evidenceHash, promptVersion, createdAt])
+}
+
+model Notification {
+  id               String    @id @default(uuid())
+  userId           String
+  type             String
+  title            String
+  body             String
+  alertId          String?
+  incidentId       String?
+  deduplicationKey String
+  readAt           DateTime?
+  createdAt        DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id])
+  alert            Alert?    @relation(fields: [alertId], references: [id])
+  incident         Incident? @relation(fields: [incidentId], references: [id])
+
+  @@unique([userId, deduplicationKey])
+  @@index([userId, readAt, createdAt])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorId      String?
+  actor        User?    @relation(fields: [actorId], references: [id])
+  action       String
+  resourceType String
+  resourceId   String
+  changes      Json     @default("{}")
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  @@index([resourceType, resourceId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model ScoreSnapshot {
+  id             String   @id @default(uuid())
+  bucketStart    DateTime @unique
+  score          Int
+  activeAlerts   Int
+  formulaVersion Int      @default(1)
+  simulated      Boolean  @default(true)
+  measuredAt     DateTime
+}
+
+model SimulationState {
+  id         String   @id
+  counter    Int      @default(0)
+  nextTickAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+model ApplicationSettings {
+  id               String   @id @default("main")
+  organizationName String   @default("Aster Labs")
+  timezone         String   @default("UTC")
+  updatedAt        DateTime @updatedAt
+}
