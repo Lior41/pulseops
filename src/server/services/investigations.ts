@@ -1,7 +1,8 @@
 import {randomUUID} from "node:crypto";
 import {z} from "zod";
 import {db} from "@/server/db";
-import {authorizeTransaction,type Actor} from "@/server/auth/guard";
+import {authorizeTransaction} from "@/server/auth/transaction";
+import type {Actor} from "@/server/auth/guard";
 import {alertStatuses,incidentStatuses} from "@/lib/domain";
 import {AppError} from "@/server/errors";
 import {notify} from "./notifications";

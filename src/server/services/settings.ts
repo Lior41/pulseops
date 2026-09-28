@@ -1,6 +1,7 @@
 import {z} from "zod";
 import {db} from "@/server/db";
-import {authorizeTransaction,type Actor} from "@/server/auth/guard";
+import {authorizeTransaction} from "@/server/auth/transaction";
+import type {Actor} from "@/server/auth/guard";
 import {AppError} from "@/server/errors";
 export async function savePreferences(actor:Actor,raw:unknown){const input=z.object({name:z.string().trim().min(2).max(80),timezone:z.string().refine(v=>{try{new Intl.DateTimeFormat("en",{timeZone:v});return true;}catch{return false;}}),notifications:z.boolean()}).parse(raw);return db.$transaction(async tx=>{await authorizeTransaction(tx,actor,"read");await tx.user.update({where:{id:actor.id},data:{name:input.name,preferences:{timezone:input.timezone,notifications:input.notifications}}});await tx.auditLog.create({data:{actorId:actor.id,action:"SETTINGS_CHANGED",resourceType:"User",resourceId:actor.id,changes:{timezone:input.timezone,notifications:input.notifications}}});return {id:actor.id};});}
 export async function changeRole(actor:Actor,raw:unknown){const input=z.object({id:z.uuid(),role:z.enum(["ADMIN","ANALYST","VIEWER"])}).parse(raw);return db.$transaction(async tx=>{

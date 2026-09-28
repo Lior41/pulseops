@@ -1,0 +1,3 @@
+import Link from "next/link";
+import {pageUrl,type SearchParams} from "@/lib/query";
+export function Pagination({path,params,page,total,pageSize=20}:{path:string;params:SearchParams;page:number;total:number;pageSize?:number}){const pages=Math.max(1,Math.ceil(total/pageSize));return <div className="flex items-center justify-between border-t px-5 py-4 text-xs text-muted-foreground"><p>{total.toLocaleString("en-US")} results · Page {page} of {pages}</p><div className="flex gap-4">{page>1&&<Link className="hover:text-primary" href={pageUrl(path,params,page-1)}>← Previous</Link>}{page<pages&&<Link className="hover:text-primary" href={pageUrl(path,params,page+1)}>Next →</Link>}</div></div>;}

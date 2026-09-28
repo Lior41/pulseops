@@ -1,6 +1,7 @@
 import {createHash} from "node:crypto";
 import {db} from "@/server/db";
-import {authorizeTransaction,type Actor} from "@/server/auth/guard";
+import {authorizeTransaction} from "@/server/auth/transaction";
+import type {Actor} from "@/server/auth/guard";
 import {rateLimit} from "@/server/auth/rate-limit";
 import {validateAnalysis,type AnalysisResult,type Severity} from "@/lib/domain";
 import {AppError} from "@/server/errors";
