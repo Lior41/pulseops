@@ -1,269 +1,118 @@
-# PulseOps — architecture
+# Architecture de PulseOps
 
-Statut : phase 2, architecture cible décidée le 28 septembre 2026. Aucun composant applicatif n'est encore implémenté. Les versions exactes seront confirmées lors de l'installation.
+Version implémentée — 28 septembre 2026. Le produit est un monolithe modulaire pour une organisation fictive. Ce document décrit le code présent, pas une architecture hypothétique. Voir [VALIDATION.md](VALIDATION.md) pour les limites des vérifications.
 
-## Architecture globale
-
-Un monolithe modulaire Next.js regroupe interface, entrées serveur et services métier. Un petit processus TypeScript exécute la simulation en Docker et partage les mêmes services. PostgreSQL est la source de vérité. Pas de second backend Python : il n'apporterait pas ici de capacité justifiant son coût de maintenance.
+## Vue globale
 
 ```mermaid
 flowchart TD
-    Browser[Browser - React] --> Pages[Next.js Server Components]
-    Browser --> Entry[Server Actions and Route Handlers]
-    Pages --> Guard[Session and server permissions]
-    Entry --> Guard
-    Guard --> Services[Domain services]
-    Services --> Prisma[Prisma]
-    Prisma --> DB[(PostgreSQL)]
-    Simulator[TypeScript simulator] --> Ingest[Validated ingestion]
-    Demo[Protected demo batch endpoint] --> Ingest
-    Ingest --> Detection[Deterministic detection engine]
-    Detection --> Prisma
-    DB --> Stream[Authenticated SSE reader]
-    Stream --> Browser
-    Services --> AI[Structured analysis service]
-    AI --> Provider[Optional AI provider]
-    AI --> Fallback[Explicit demo fallback]
+  Browser[Browser / React] --> RSC[Next.js Server Components]
+  Browser --> Actions[Server Actions / Route Handlers]
+  Actions --> Auth[Auth.js + DB role validation]
+  Auth --> Services[Application services + Zod]
+  Services --> Prisma[Prisma / pg adapter]
+  RSC --> Prisma
+  Prisma --> DB[(PostgreSQL)]
+  Simulator[Weighted synthetic event generator] --> Ingestion[Transactional ingestion]
+  Ingestion --> Rules[Pure detection rules]
+  Rules --> Evidence[Alerts + linked evidence + audit]
+  Evidence --> DB
+  DB --> SSE[Authenticated SSE stream]
+  SSE --> Browser
+  Services --> Analysis[Structured local demo analyst]
+  Analysis --> DB
 ```
 
-Les lectures serveur appellent les services directement, sans requête HTTP interne. Les mutations de formulaires utilisent des Server Actions. Auth, SSE, recherche asynchrone et génération demo utilisent des Route Handlers.
+Next.js sert l'interface et le backend. Un service FastAPI séparé n'apporterait pas assez de valeur ici pour justifier deux runtimes, deux contrats d'authentification et un second déploiement. Le simulateur réutilise les mêmes services TypeScript.
 
-## Choix techniques
+## Dossiers et frontières
 
-| Choix | Justification |
-| --- | --- |
-| Next.js récent, App Router, React, TypeScript strict | Une base UI/backend ; Server Components par défaut, composants clients ciblés |
-| Runtime Node.js | Compatibilité Prisma, hash des mots de passe, scripts et Docker |
-| Tailwind, shadcn/ui, Lucide | Primitives accessibles composées dans une identité visuelle propre |
-| Recharts et carte SVG locale | Graphiques et géographie sans service cartographique payant |
-| PostgreSQL + Prisma | Relations, contraintes, transactions et migrations versionnées |
-| Auth.js Credentials + JWT | Connexion email/password, avec stockage et vérification des comptes côté serveur |
-| Zod | Validation des entrées, environnement, filtres et réponses IA |
-| SSE | Flux serveur vers navigateur suffisant pour le feed |
-| Vitest, Testing Library, Playwright | Logique métier, interactions et parcours navigateur |
-| Docker Compose et GitHub Actions | Reproductibilité locale et vérifications automatiques |
+- `src/app` : routes, layouts, Server Actions, points d'entrée HTTP.
+- `src/features` : interactions React propres aux alertes, incidents, tableaux de bord et préférences.
+- `src/components` : structure de navigation, primitives accessibles et composants communs.
+- `src/lib` : types métier, schémas Zod et fonctions pures utilisables des deux côtés.
+- `src/server` : accès DB, autorisation, détection, simulation, analyse et services métier.
+- `prisma` : schéma, migration SQL et seed idempotent.
+- `tests` : unités, composants, intégration DB et parcours navigateur.
 
-Installer des versions publiées compatibles et committer le lockfile. Vérifier les peer dependencies et le statut stable ou préliminaire d'Auth.js ; documenter le compromis sans le masquer. La documentation Next.js consultée décrit la branche 16 et un lint indépendant du build.
+Les pages sont des Server Components. Les formulaires, graphiques Recharts, notifications, palette et flux SSE sont des Client Components. Seuls des objets sérialisables sélectionnés sont transmis au navigateur. Aucune connexion Prisma ni clé d'environnement n'y est exposée, à l'exception du mot de passe du compte public de démonstration lorsque DEMO_MODE est activé.
 
-## Structure cible
+## Données et relations
 
-```text
-pulseops/
-├── src/
-│   ├── app/
-│   │   ├── (auth)/login/
-│   │   ├── (soc)/dashboard/
-│   │   ├── (soc)/alerts/[id]/
-│   │   ├── (soc)/incidents/[id]/
-│   │   ├── (soc)/users/[id]/
-│   │   ├── (soc)/assets/[id]/
-│   │   ├── (soc)/threat-map/
-│   │   ├── (soc)/events/
-│   │   ├── (soc)/search/
-│   │   ├── (soc)/audit/
-│   │   ├── (soc)/settings/
-│   │   ├── (soc)/demo/
-│   │   └── api/
-│   ├── components/        # Primitives UI et shell
-│   ├── features/          # Composants et schémas par domaine
-│   ├── server/
-│   │   ├── auth/          # Session, permissions, hash, limites
-│   │   ├── db/            # Prisma et requêtes partagées
-│   │   ├── services/      # Alertes, incidents, recherche, audit
-│   │   ├── detection/     # Règles pures et orchestration
-│   │   ├── simulation/    # Scénarios, distributions, horloge
-│   │   └── ai/            # Contexte, fournisseur et validation
-│   ├── hooks/             # SSE et raccourcis réutilisables
-│   ├── lib/               # Formatage et utilitaires purs
-│   └── types/             # Contrats partagés si nécessaires
-├── prisma/                # Schéma, migrations, seed
-├── scripts/               # Simulateur et opérations demo
-├── tests/{unit,integration,e2e}/
-├── public/
-├── docs/
-└── .github/workflows/
-```
+`User` représente un compte SOC qui se connecte. `MonitoredIdentity` représente une personne fictive observée. Les confondre donnerait involontairement un accès applicatif à chaque identité surveillée.
 
-Les schémas Zod restent proches de leur domaine. `server-only` protège les modules sensibles importés par Next.js ; le cœur pur partagé avec les scripts reste indépendant de React. Pas de repository générique ou de conteneur d'injection sans besoin réel.
+Un événement immuable possède une séquence monotone, une date d'occurrence, une date d'ingestion, une identité et un asset facultatifs. La clé `(source, sourceEventId)` rend l'ingestion idempotente. `AlertEvent` et `IncidentEvent` conservent les liens entre les preuves et les investigations. Un incident peut regrouper plusieurs alertes dans le modèle ; l'interface V1 crée un incident depuis une alerte ou un dossier indépendant. La fusion manuelle d'alertes existantes est une évolution V2.
 
-## Authentification et autorisation
+Les alertes et incidents ont une `version` pour empêcher les mises à jour obsolètes. Les index correspondent aux fenêtres de détection, aux filtres d'alertes, aux recherches par identité/IP et à la pagination. La recherche textuelle globale utilise `contains` avec limites de résultats : correcte à l'échelle de la démo, à remplacer par des index trigrammes ou plein texte pour un corpus important.
 
-Auth.js gère le protocole de session. Notre provider Credentials valide avec Zod, limite les tentatives, charge User et vérifie un hash Argon2id. Le message d'échec est générique. Un hash factice pour les comptes absents limite les écarts grossiers de temps.
+`Account` et `Session` sont présents pour une évolution OAuth, mais le flux Credentials actuel utilise des JWT : ces tables ne sont pas artificiellement remplies.
 
-JWT en cookie HttpOnly, Secure en production, SameSite adapté. Aucun token dans localStorage. Le token contient l'identifiant et une version de session. Chaque accès protégé recharge le rôle, l'état actif et `sessionVersion` en DB. Une désactivation ou incrémentation de version révoque l'accès sans attendre l'expiration du JWT. Durée fixe courte ; pas de case remember me décorative.
+## Authentification et RBAC
 
-Le provider Credentials impose les sessions JWT dans la documentation Auth.js consultée. Account et Session restent prévus pour la compatibilité de l'adapter et une évolution OAuth, sans fausses lignes Session pour les connexions Credentials. Le seed crée les comptes, car Credentials ne les persiste pas automatiquement.
+Auth.js v5 beta est verrouillé dans le lockfile. C'est un compromis explicite pour son API App Router ; une montée de version exige de rejouer le parcours de connexion.
 
-Le compte demo utilise `demo@pulseops.dev`. Son mot de passe est défini par la configuration de démonstration et hashé par le seed. Le bouton « Try demo account » utilise le flux de connexion normal ; il ne contourne jamais les contrôles serveur. Ce mot de passe de démo publique n'est pas traité comme un secret de production. Le compte ADMIN possède des identifiants privés distincts, jamais affichés.
+1. Zod valide email et mot de passe.
+2. Deux compteurs PostgreSQL limitent les tentatives par email haché et globalement.
+3. Argon2id vérifie le mot de passe. Un hash factice évite de court-circuiter le calcul pour un email inconnu.
+4. Auth.js signe/chiffre son JWT dans un cookie HttpOnly ; la session expire après quatre heures. HTTPS active les cookies sécurisés.
+5. Chaque page/API/action protégée relit l'utilisateur actif, son rôle et sa `sessionVersion`.
+6. Les mutations revalident encore ces droits **dans leur transaction**, sous verrou d'acteur.
 
-| Action | VIEWER | ANALYST | ADMIN |
-| --- | --- | --- | --- |
-| Lire les données SOC | Oui | Oui | Oui |
-| Analyser avec IA | Non | Oui | Oui |
-| Modifier une alerte, créer/commenter/résoudre un incident | Non | Oui | Oui |
-| Consulter l'audit administratif | Non | Non | Oui |
-| Gérer ses préférences et notifications | Oui | Oui | Oui |
-| Modifier rôles et paramètres globaux | Non | Non | Oui |
-| Déclencher simulation | Non | Si DEMO | Si DEMO |
+| Rôle    | Lecture | Analyse / triage / incidents | Rôles / organisation / audit global |
+| ------- | ------- | ---------------------------- | ----------------------------------- |
+| VIEWER  | Oui     | Non                          | Non                                 |
+| ANALYST | Oui     | Oui                          | Non                                 |
+| ADMIN   | Oui     | Oui                          | Oui                                 |
 
-Chaque entrée serveur vérifie une permission centrale. Le layout protège la navigation mais ne constitue pas la seule barrière. Une notification appartient à un destinataire précis. Un owner d'incident doit être un analyste ou admin actif. Le dernier ADMIN actif ne peut pas être rétrogradé.
+Changer un rôle incrémente `sessionVersion`, ce qui invalide les anciennes sessions. Le dernier administrateur actif ne peut pas être rétrogradé. Le compte public est ANALYST. Le mot de passe administrateur n'est jamais fourni par défaut. Pas de MFA ni de réinitialisation de mot de passe dans V1 ; ces absences sont indiquées dans Settings.
 
-Les mutations sensibles revalident l'acteur dans leur transaction ; un verrou par acteur partagé avec les changements de rôle évite une course de révocation. Le SSE revalide lors des reconnexions et périodiquement ; sa fenêtre maximale de révocation sera testée.
+## Moteur de détection
 
-Le rate limiting utilise des compteurs atomiques PostgreSQL avec expiration, adaptés au faible volume. Clés par action, utilisateur ou hash HMAC d'IP de confiance, plus plafond global. Ne pas faire confiance à un header IP arbitraire ; accepter l'IP transmise seulement avec un proxy explicitement configuré.
+`rules.ts` est une fonction pure : événement + historique → détections. La fenêtre est de cinq minutes et exclut les événements futurs. Les preuves sont des IDs d'événements existants.
 
-## Données et invariants
+| Règle           | Condition                                                                | Niveau         |
+| --------------- | ------------------------------------------------------------------------ | -------------- |
+| AUTH-001        | Au moins 5 échecs pour une identité                                      | MEDIUM         |
+| AUTH-002        | Au moins 15 échecs depuis une IP                                         | HIGH           |
+| AUTH-003        | Au moins 10 échecs, puis succès signalé depuis un nouveau pays           | CRITICAL       |
+| Signaux directs | Malware simulé, élévation, brute force, abus API, téléchargement suspect | Selon la règle |
 
-Le [modèle détaillé](DATA_MODEL.md) sépare les comptes SOC, les personnes surveillées et les preuves.
+La donnée `newCountry` est fournie par le scénario normalisé ; le moteur ne prétend pas disposer d'un service de géolocalisation réel. Les règles directes et la corrélation sont séparées pour rendre les tests lisibles.
 
-- Une alerte référence ses événements probants ; ils ne sont pas reconstruits depuis un texte IA.
-- Une alerte appartient au maximum à un incident en V1 ; un incident regroupe plusieurs alertes.
-- Conversion, liens de preuves, audit et notifications sont atomiques.
-- Clé source idempotente sur chaque événement ; un retry ne duplique pas les effets.
-- L'ingestion acquiert un verrou transactionnel global avant insertion. Le faible débit cible accepte cette sérialisation, qui évite les courses du moteur et ordonne les commits pour SSE.
-- Les mises à jour d'alerte/incident portent une version optimiste ; un conflit demande un rafraîchissement.
-- Aucun appel IA externe dans une transaction DB.
-- Événements et audits append-only dans l'application ; aucune promesse d'inviolabilité face à un administrateur DB.
-- Migrations versionnées ; pas de `db push` comme procédure de production ni seed destructif au démarrage.
+L'orchestrateur prend un verrou transactionnel d'ingestion, vérifie la déduplication, insère l'événement, charge au plus 500 échecs pertinents, applique les règles et persiste alerte, preuves, audit et notification atomiquement. Les détections de même règle et même sujet sont regroupées pendant cinq minutes. Une alerte clôturée n'est pas rouverte automatiquement dans cette fenêtre ; les nouvelles preuves restent attachées. Les nouvelles occurrences hors fenêtre produisent une nouvelle alerte.
 
-## Simulation et moteur de détection
+Le verrou global privilégie la correction d'une petite démo. Pour monter en charge : partitions par sujet, ordre de verrouillage explicite, queue durable et tests de concurrence sur PostgreSQL natif. Aucun débit de SIEM de production n'est revendiqué.
 
-Les événements sont des données, jamais des actions réseau. Horloge et générateur pseudo-aléatoire sont injectables.
+## Temps réel et simulation
 
-Distribution initiale : NORMAL_LOGIN 64 %, FAILED_LOGIN 18 %, NEW_DEVICE 6 %, NEW_COUNTRY 4 %, BRUTE_FORCE 2 %, PRIVILEGE_ESCALATION 2 %, MALWARE_DETECTED 1 %, SUSPICIOUS_DOWNLOAD 2 %, API_ABUSE 1 %. Des scénarios séquencés garantissent des corrélations démontrables.
+Le worker Docker appelle le générateur pondéré toutes les quatre secondes. Sur Vercel, un navigateur analyste appelle un endpoint de démonstration toutes les cinq secondes lorsqu'un flux est ouvert. Un état verrouillé en DB permet au plus un tick global toutes les quatre secondes, quel que soit le nombre d'onglets. Un lecteur ne génère pas de données.
 
-NORMAL_LOGIN est le nom canonique du succès d'authentification, équivalent à LOGIN_SUCCESS dans le brief. Le pays connu/inconnu est un attribut de contexte validé ; la mise à jour de la référence des pays habituels intervient après l'évaluation.
+Le GET SSE est strictement lecteur. Il consulte les événements toutes les 2,5 secondes, envoie des IDs de séquence, des heartbeats et se termine après 24 secondes. EventSource se reconnecte avec Last-Event-ID ; ce format reste compatible avec une fonction de durée limitée. Une interruption importante charge un snapshot des 50 derniers événements et l'annonce dans l'interface. Le client conserve au plus 200 lignes. Pause ferme la connexion ; reprendre rouvre le flux. La session est revalidée à chaque cycle.
 
-| Règle | Fenêtre | Sévérité |
-| --- | --- | --- |
-| Au moins 5 FAILED_LOGIN pour la même personne | 5 minutes glissantes | MEDIUM |
-| Au moins 15 FAILED_LOGIN pour la même IP | 5 minutes glissantes | HIGH |
-| Au moins 10 FAILED_LOGIN pour une personne, puis NORMAL_LOGIN depuis un nouveau pays | 5 minutes avant le succès | CRITICAL |
+Le streaming ne met pas à jour tous les indicateurs du dashboard à chaque événement : les compteurs sont un instantané au chargement, le feed est en direct. Les notifications sont interrogées toutes les 30 secondes. Les recherches du feed ne portent que sur ses 200 événements ; la recherche globale interroge la base.
 
-Des règles directes couvrent également les signaux MALWARE_DETECTED, PRIVILEGE_ESCALATION et API_ABUSE avec explication et preuves. Les seuils et niveaux seront versionnés et testés.
+## Analyse structurée
 
-Le moteur pur retourne règle/version, sévérité, sujet, événements probants et explication. L'orchestrateur charge un historique borné, évalue et persiste atomiquement événement, alertes, preuves, audit système et notifications. Les occurrences sont dédupliquées par règle/sujet pendant cinq minutes de suppression. De nouvelles preuves enrichissent l'occurrence ; une autre règle plus grave peut créer une alerte distincte explicitement reliée à ses preuves.
+La version disponible est **DEMO**, déterministe et locale. Elle transforme la règle et ses preuves en résumé, niveau, références, recommandations, confiance illustrative et limites. Le résultat est validé par Zod, puis chaque référence est vérifiée contre les preuves autorisées. Une analyse est persistée avec son auteur, mode, version de prompt et hash des preuves ; sa création est auditée. Aucun bouton ne contient de réponse brute ou de commande de remédiation.
 
-`occurredAt` et `ingestedAt` restent distincts. La V1 évalue l'ordre d'ingestion et l'historique disponible, sans prétendre recalculer automatiquement toutes les corrélations historiques après un événement tardif. Le simulateur fournit normalement des événements ordonnés.
+Le module `context.ts` prépare une liste blanche pour une future intégration externe : types d'événements fictifs, références locales E1/E2 et délais relatifs. Noms, emails, IP, identifiants DB, dates absolues et texte libre sont exclus. Les tests rejettent les données non simulées ou de provenance inconnue. **Aucun appel externe n'est activé dans cette version.** Les modes LIVE/FALLBACK du modèle sont réservés à cette extension, sans prétendre qu'elle est en service.
 
-## Temps réel et environnements
+## Sécurité des mutations
 
-### Docker
+Les Server Actions sont des endpoints : chacune authentifie, autorise et valide l'entrée. Les API de mutation vérifient l'Origin. Auth.js protège son flux de connexion contre le CSRF ; Next.js vérifie l'origine des Server Actions. Les entrées sont rendues comme texte React, sans HTML injecté. Les requêtes SQL manuelles utilisent les templates paramétrés Prisma.
 
-Compose lance PostgreSQL, une étape contrôlée de migration, l'application et le simulateur TypeScript. Ce dernier génère toutes les deux à cinq secondes avec les mêmes services que la démo Vercel. Healthchecks et ordre de démarrage explicités. Seed idempotent limité à une base demo configurée ; aucune remise à zéro implicite.
+Une CSP avec nonce par requête protège les scripts. `unsafe-eval` n'est permis qu'en développement ; les styles inline restent autorisés pour Recharts et les composants de thème. Frame-ancestors, X-Frame-Options, nosniff, Referrer-Policy et Permissions-Policy complètent ces protections. Le proxy ne remplace pas les contrôles d'accès dans le serveur.
 
-### Vercel
+Les quotas utilisent des compteurs PostgreSQL et restent cohérents entre instances. V1 ne dispose pas de nettoyage périodique des anciennes clés ni de protection DDoS dédiée. Le déploiement public doit rester une démonstration, avec protections de plateforme et limites de consommation.
 
-L'application et PostgreSQL distant suffisent au mode recruteur. Une fonction Vercel n'héberge pas la boucle permanente du simulateur.
+## Calculs explicables
 
-En mode DEMO, la vue live active demande périodiquement un petit lot via POST authentifié. Une ligne SimulationState verrouillée impose la cadence globale, y compris avec plusieurs onglets/visiteurs. Le serveur choisit les types, timestamps et volumes ; aucune cible réseau n'est acceptée. Sans visiteur, la génération s'arrête : limite documentée et visible.
+Score global : `max(0, 100 − somme des poids des alertes OPEN/INVESTIGATING))`, avec LOW=1, MEDIUM=3, HIGH=7, CRITICAL=12. Snapshot horaire à l'activité du simulateur ou au triage. L'historique initial est reconstruit à partir des alertes fictives et de leurs résolutions.
 
-SSE reste un lecteur sans effet de bord. Connexions courtes, heartbeat et reconnexion avant la limite du plan choisi. Une simulation distante permanente demanderait le processus dédié ; ce n'est pas une capacité prétendue de la démo Vercel.
+Risque d'identité/asset : somme des poids actifs × 4, plafonnée à 100. Ce sont des heuristiques pédagogiques, pas des probabilités calibrées. Le score peut atteindre zéro si la simulation accumule des alertes sans analyste.
 
-### Contrat du flux
+## Déploiement et limites
 
-- Un EventSource par shell connecté, arrêté à la déconnexion.
-- Payload JSON validé, séquence sérialisée en string.
-- Last-Event-ID pour la reconnexion et curseur validé lors d'une reprise volontaire.
-- L'ingestion sérialisée attribue la séquence avant commit sans publication concurrente hors ordre.
-- Relecture bornée ; retard excessif signalé et snapshot rechargé.
-- Déduplication par ID, tampon visuel borné, recherche et filtres validés.
-- Pause ferme la connexion ; d'autres visiteurs peuvent continuer la simulation globale.
-- Nettoyage des timers à la fermeture ; statut connecting/live/paused/reconnecting/unavailable honnête.
-- Notifications rafraîchies séparément à cadence bornée.
+Docker exécute une app Node standalone, PostgreSQL, un job de migration/seed et le worker. Sur Vercel, PostgreSQL est distant et le tick passe par le navigateur ; aucun worker permanent n'est promis. PGlite est seulement une option locale sans Docker et ne remplace pas les tests de concurrence sur PostgreSQL natif.
 
-Le SSE interroge la base à cadence modérée, avec requêtes courtes et connexions rendues au pool entre lectures. La charge croît avec les clients : acceptable pour une démo mesurée, diffusion dédiée à envisager à plus grande échelle. Pool du driver, URL d'exécution et connexion de migration sont configurés selon le PostgreSQL choisi.
-
-## Analyse IA structurée
-
-Contexte borné : alerte, règle et événements probants. Exclure secrets, champs inutiles et données personnelles non nécessaires. La démo ne contient que des données fictives.
-
-```text
-summary: texte borné
-riskLevel: LOW | MEDIUM | HIGH | CRITICAL
-evidence: liste de { eventId, observation }
-recommendedActions: liste de { title, rationale }
-confidence: nombre entre 0 et 100
-limitations: liste de textes courts
-```
-
-L'enveloppe serveur ajoute mode LIVE/DEMO/FALLBACK, modèle éventuel, version du prompt, hash des preuves, date et auteur. Le modèle ne choisit pas le mode affiché.
-
-Pipeline : permission → quotas → contexte → prompt → appel avec timeout → parsing → Zod → validation des IDs de preuve → persistance. Une analyse en cache exige la même version de prompt et le même hash de preuves.
-
-Les logs sont des données non fiables ; leurs éventuelles instructions n'ont pas autorité. L'IA n'a aucun outil d'action. Affichage de texte structuré sans HTML brut. Une recommandation n'exécute aucune suspension ou réinitialisation réelle.
-
-Sans clé : analyse déterministe étiquetée « Demo analysis ». Timeout, quota ou sortie invalide : erreur compréhensible et fallback clairement signalé. La confiance n'est pas une probabilité calibrée ; la valeur demo est illustrative.
-
-## Requêtes, recherche et métriques
-
-Paramètres URL validés, tailles plafonnées, champs de tri en liste blanche et second tri par ID. Recherche exacte normalisée pour IP/email/référence et textuelle bornée pour noms/titres/hostnames. Résultats et compteurs par groupe. Curseurs pour le feed et gros volumes ; pagination numérotée pour petites listes métier.
-
-Sélection de colonnes utiles, absence de N+1, index composés. Recherche full text/trigrammes seulement si le seed et les mesures le justifient. Pages sensibles sans cache public ; invalidation après mutations.
-
-Score pédagogique V1 : max(0, 100 - min(100, somme des poids des alertes actives)), avec LOW=1, MEDIUM=3, HIGH=7, CRITICAL=12. Le score de risque d'une personne est la somme plafonnée à 100 pour ses alertes. Formules versionnées, limites expliquées. Snapshot horaire pour le score global ; « no baseline » si la référence manque, jamais de delta inventé.
-
-Les snapshots suivent les ticks du simulateur dans les deux environnements et conservent leur timestamp réel. Les gaps sont affichés. Le seed peut construire une histoire cohérente explicitement synthétique pour les graphiques.
-
-## Routes et entrées serveur
-
-| Route | Fonction |
-| --- | --- |
-| `/` | Redirection vers login ou dashboard selon session |
-| `/login` | Connexion et compte demo |
-| `/dashboard` | Synthèse SOC |
-| `/threat-map`, `/events` | Carte et feed complet |
-| `/alerts`, `/alerts/[id]` | Triage et analyse |
-| `/incidents`, `/incidents/[id]` | Investigations |
-| `/users`, `/users/[id]` | Personnes surveillées |
-| `/assets`, `/assets/[id]` | Inventaire et activité |
-| `/search` | Investigation transversale |
-| `/audit` | Audit réservé ADMIN |
-| `/settings` | Onglets de paramètres avec permissions propres |
-| `/demo` | Parcours guidé, avec connexion requise pour les données |
-| `/api/auth/[...nextauth]` | Auth.js |
-| `GET /api/events/stream` | SSE authentifié |
-| `GET /api/search` | Recherche bornée et autorisée |
-| `GET /api/notifications` | Notifications de l'acteur |
-| `POST /api/demo/tick` | Simulation bornée, DEMO uniquement |
-| `GET /api/health` | Santé minimale sans détails sensibles |
-
-Server Actions : changer un statut, créer/commenter/résoudre un incident, analyser une alerte, marquer une notification lue, modifier ses préférences et administrer un rôle. Elles délèguent aux services protégés.
-
-## Sécurité, tests et livraison
-
-Zod aux frontières, Prisma et SQL paramétré, origine vérifiée pour les mutations HTTP par cookie, protections Auth.js/CSRF. Aucun GET mutatif. Secrets serveur uniquement, `.env.example` sans secrets, logs expurgés. Headers anti-framing, nosniff, referrer policy, permissions policy et CSP vérifiée sur le build réel.
-
-Audit avec acteur/action/ressource/changements/date/IP disponible, jamais de token ou mot de passe. Une mutation et son audit échouent ou réussissent ensemble. Connexion réussie auditée via les mécanismes Auth.js ; échecs agrégés pour limiter le spam.
-
-- Unitaires : seuils, fenêtres, corrélation critique, déduplication, score, RBAC, validation IA.
-- Intégration : PostgreSQL isolé réel, migrations, ingestion vers alerte, concurrence, rollback et autorisation via entrées serveur.
-- UI : clavier, formulaires, filtres, loading IA et pause/reprise.
-- E2E : login → dashboard → alerte → investigating → incident, VIEWER interdit et reconnexion SSE.
-- CI : installation verrouillée, Prisma generate/validate, lint, typecheck, tests, build et smoke E2E avec PostgreSQL de service.
-- CD : previews Vercel et base séparée, secrets absents des PR non fiables, migration contrôlée et compatible avant déploiement.
-- Vérification visuelle desktop/mobile et captures réelles avant publication du README final.
-
-## Risques et compromis
-
-| Risque | Réponse |
-| --- | --- |
-| Périmètre | Parcours vertical d'abord, toutes les pages obligatoires avant V1 |
-| SSE et limites Vercel | Reconnexion, requêtes bornées, pool et charge mesurés |
-| Rôle périmé dans un JWT | Relecture DB, version de session, contrôles transactionnels |
-| Doublons de détection | Ingestion sérialisée, idempotence, contraintes, tests concurrents |
-| Hallucination IA | Preuves vérifiées, limites visibles, aucun outil d'action |
-| Seed incohérent | Scénarios corrélés, horloge de test, compteurs réellement calculés |
-| Démo publique partagée | Base fictive, quotas, rôle limité, état partagé signalé, reset administratif explicite |
-| Différences Docker/Vercel | Mêmes services métier, ordonnanceur de simulation différent |
-| Complexité pour un junior | Services concrets, fonctions pures et compromis expliqués |
-
-## Références vérifiées
-
-- [Next.js : installation et lint](https://nextjs.org/docs/app/getting-started/installation)
-- [Next.js : sécurité des données](https://nextjs.org/docs/app/guides/data-security)
-- [Auth.js : Credentials](https://authjs.dev/getting-started/authentication/credentials)
-- [Auth.js : contrainte Credentials/JWT](https://authjs.dev/reference/core/providers/credentials)
-- [Vercel : limites des fonctions](https://vercel.com/docs/functions/limitations)
-
-Les décisions ci-dessus sont propres au projet. Les documentations ne garantissent pas la sécurité de leur implémentation ; les versions et limites seront revérifiées aux phases concernées.
+La V1 est mono-organisation. Ajouter du multi-tenant exigerait des clés tenant sur les données, filtres systématiques, contraintes composées et tests d'isolation. L'audit est append-only dans l'application, pas cryptographiquement inviolable. Les commentaires, données et preuves persistent ; aucune purge ni action offensive n'est disponible dans l'interface.

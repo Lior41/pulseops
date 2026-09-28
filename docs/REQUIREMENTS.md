@@ -37,33 +37,33 @@ Un VIEWER doit échouer à modifier une alerte même en appelant directement le 
 
 Le MVP est une livraison intermédiaire. Il ne supprime aucune exigence obligatoire du projet final.
 
-| Livraison | Périmètre |
-| --- | --- |
-| MVP | Login/demo, RBAC, DB/seed, simulateur, règles, dashboard/carte, alertes et détails, incidents/commentaires, SSE, IA structurée, audits et tests du parcours |
+| Livraison    | Périmètre                                                                                                                                                                                            |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MVP          | Login/demo, RBAC, DB/seed, simulateur, règles, dashboard/carte, alertes et détails, incidents/commentaires, SSE, IA structurée, audits et tests du parcours                                          |
 | V1 portfolio | MVP + profils surveillés/assets, recherche, palette, notifications, settings, audit UI, mode recruteur, finition accessible/responsive, Docker, CI/CD, documentation, captures et préparation Vercel |
-| V2 | OIDC/MFA, multi-tenant, démos isolées par visiteur, connecteurs défensifs réels, règles éditables, recherche avancée, queue/diffusion distribuée si nécessaire, rétention et rapports |
+| V2           | OIDC/MFA, multi-tenant, démos isolées par visiteur, connecteurs défensifs réels, règles éditables, recherche avancée, queue/diffusion distribuée si nécessaire, rétention et rapports                |
 
 ## Exigences traçables
 
-| Domaine | Livraison attendue | Phases |
-| --- | --- | --- |
-| Login | Email/password, validation, erreurs, loading, demo ; pas de remember me sans politique réelle | 5, 15 |
-| Dashboard | Score/delta, menaces actives, alertes critiques, événements du jour, personnes, endpoints ; séries incidents 24 h/7 j, catégories, sévérité et score | 8 |
-| Threat map | Pays, nombre, niveau, position synthétique, légende, interaction clavier et alternative tabulaire | 8, 15 |
-| Feed | SSE, pause/reprise, filtres/recherche, reconnexion et état du flux | 10 |
-| Alertes | Severity, title, user, IP, country, date, status ; filtres severity/status/country/date/category, recherche, pagination et tri | 9 |
-| Détail | Description, source, personne, IP, pays, device, historique et timeline probante | 9 |
-| IA | Prompt, parsing/Zod, preuve référencée, loading, timeout, erreur et fallback étiqueté | 11 |
-| Incidents | ID, titre, sévérité, owner, statut, dates, description, événements, commentaires et timeline | 9 |
-| Personnes | Département, dernière connexion/pays, incidents, risque ; historique, devices, IP, pays, alertes et authentifications | 9, 15 |
-| Assets | Hostname, OS, statut, IP, last seen, propriétaire et risque | 9, 15 |
-| Recherche | Email, nom, IP, événement, incident, hostname ; groupes, résultats et compteurs | 9, 15 |
-| Palette | Cmd/Ctrl+K, navigation, recherche, création d'incident et thème selon permissions | 15 |
-| Notifications | Badge, lecture, alertes critiques, attribution/résolution, baisse du score | 9, 10, 15 |
-| Audit | Connexion, alerte modifiée/résolue, incident créé/résolu, rôle modifié ; acteur/action/ressource/date/IP disponible | 5, 9, 15 |
-| Settings | General, Security, Users, Notifications, Integrations ; préférences et rôles persistés, connecteurs DEMO | 15 |
-| Recruiter demo | Dashboard → alerte critique → IA → incident → feed, avec vraies ressources | 15 |
-| Livraison | Tests, Docker, GitHub Actions, Git, captures, README, architecture, entretien, déploiement documenté | 12–16 |
+| Domaine        | Livraison attendue                                                                                                                                   | Phases    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Login          | Email/password, validation, erreurs, loading, demo ; pas de remember me sans politique réelle                                                        | 5, 15     |
+| Dashboard      | Score/delta, menaces actives, alertes critiques, événements du jour, personnes, endpoints ; séries incidents 24 h/7 j, catégories, sévérité et score | 8         |
+| Threat map     | Pays, nombre, niveau, position synthétique, légende, interaction clavier et alternative tabulaire                                                    | 8, 15     |
+| Feed           | SSE, pause/reprise, filtres/recherche, reconnexion et état du flux                                                                                   | 10        |
+| Alertes        | Severity, title, user, IP, country, date, status ; filtres severity/status/country/date/category, recherche, pagination et tri                       | 9         |
+| Détail         | Description, source, personne, IP, pays, device, historique et timeline probante                                                                     | 9         |
+| IA             | Prompt, parsing/Zod, preuve référencée, loading, timeout, erreur et fallback étiqueté                                                                | 11        |
+| Incidents      | ID, titre, sévérité, owner, statut, dates, description, événements, commentaires et timeline                                                         | 9         |
+| Personnes      | Département, dernière connexion/pays, incidents, risque ; historique, devices, IP, pays, alertes et authentifications                                | 9, 15     |
+| Assets         | Hostname, OS, statut, IP, last seen, propriétaire et risque                                                                                          | 9, 15     |
+| Recherche      | Email, nom, IP, événement, incident, hostname ; groupes, résultats et compteurs                                                                      | 9, 15     |
+| Palette        | Cmd/Ctrl+K, navigation, recherche, création d'incident et thème selon permissions                                                                    | 15        |
+| Notifications  | Badge, lecture, alertes critiques, attribution/résolution, baisse du score                                                                           | 9, 10, 15 |
+| Audit          | Connexion, alerte modifiée/résolue, incident créé/résolu, rôle modifié ; acteur/action/ressource/date/IP disponible                                  | 5, 9, 15  |
+| Settings       | General, Security, Users, Notifications, Integrations ; préférences et rôles persistés, connecteurs DEMO                                             | 15        |
+| Recruiter demo | Dashboard → alerte critique → IA → incident → feed, avec vraies ressources                                                                           | 15        |
+| Livraison      | Tests, Docker, GitHub Actions, Git, captures, README, architecture, entretien, déploiement documenté                                                 | 12–16     |
 
 ## Données et métriques
 
