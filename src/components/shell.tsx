@@ -224,7 +224,7 @@ export function Shell({
       >
         Skip to content
       </a>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[224px] flex-col border-r bg-card lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[224px] flex-col overflow-y-auto border-r bg-card lg:flex">
         {nav}
       </aside>
       <Dialog open={mobile} onOpenChange={setMobile}>

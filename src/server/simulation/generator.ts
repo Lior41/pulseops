@@ -2,8 +2,10 @@ import type { EventInput, EventType } from "@/lib/domain";
 export function seededRandom(seed: number) {
   let state = seed >>> 0;
   return () => {
-    state = (1664525 * state + 1013904223) >>> 0;
-    return state / 4294967296;
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = Math.imul(state ^ (state >>> 15), state | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
   };
 }
 const weighted: [EventType, number][] = [
@@ -41,7 +43,7 @@ export function generateEvent(
     category:
       type === "API_ABUSE"
         ? "API"
-        : type === "MALWARE_DETECTED"
+        : ["MALWARE_DETECTED", "NEW_DEVICE"].includes(type)
           ? "ENDPOINT"
           : type === "SUSPICIOUS_DOWNLOAD"
             ? "DATA"
@@ -53,7 +55,7 @@ export function generateEvent(
         ? "CRITICAL"
         : ["API_ABUSE", "PRIVILEGE_ESCALATION", "BRUTE_FORCE"].includes(type)
           ? "HIGH"
-          : type === "FAILED_LOGIN"
+          : ["FAILED_LOGIN", "SUSPICIOUS_DOWNLOAD"].includes(type)
             ? "MEDIUM"
             : "LOW",
     occurredAt: now,

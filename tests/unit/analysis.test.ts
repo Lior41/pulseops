@@ -60,3 +60,17 @@ it("rejects invented evidence and out-of-range confidence", () => {
   expect(() => validateAnalysis(result, ["actual"])).toThrow();
   expect(() => validateAnalysis({ ...result, confidence: 101 }, ["invented"])).toThrow();
 });
+
+import { demoAnalysis } from "@/server/ai/demo";
+it("adapts a simulated malware assessment to endpoint investigation", () => {
+  const result = demoAnalysis(
+    {
+      description: "A simulated endpoint sensor reported a finding.",
+      severity: "CRITICAL",
+      ruleId: "SIGNAL-MALWARE_DETECTED",
+    },
+    [{ id: "event-1", type: "MALWARE_DETECTED" }],
+  );
+  expect(result.recommendedActions[0].title).toBe("Validate the endpoint signal");
+  expect(result.evidence[0].eventId).toBe("event-1");
+});

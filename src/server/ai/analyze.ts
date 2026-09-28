@@ -3,46 +3,9 @@ import { db } from "@/server/db";
 import { authorizeTransaction } from "@/server/auth/transaction";
 import type { Actor } from "@/server/auth/guard";
 import { rateLimit } from "@/server/auth/rate-limit";
-import { validateAnalysis, type AnalysisResult, type Severity } from "@/lib/domain";
+import { demoAnalysis } from "./demo";
 import { AppError } from "@/server/errors";
 import { z } from "zod";
-export function demoAnalysis(
-  alert: { description: string; severity: Severity; ruleId: string },
-  events: { id: string; type: string }[],
-): AnalysisResult {
-  return validateAnalysis(
-    {
-      summary: `${alert.description} This assessment is generated from the detection rule and its linked evidence. Verify the identity owner's activity before concluding that the account is compromised.`,
-      riskLevel: alert.severity,
-      evidence: events.slice(-6).map((e) => ({
-        eventId: e.id,
-        observation: `Recorded ${e.type.toLowerCase().replaceAll("_", " ")} in the detection window.`,
-      })),
-      recommendedActions: [
-        {
-          title: "Verify the identity owner's activity",
-          rationale: "Confirm the time, device and location through a trusted channel.",
-        },
-        {
-          title: "Review related authentication history",
-          rationale: "Correlate failed and successful sign-ins with device activity.",
-        },
-        {
-          title: "Contain only after verification",
-          rationale:
-            "An authorized operator could revoke suspicious sessions in a real environment. PulseOps performs no external action.",
-        },
-      ],
-      confidence: alert.ruleId === "AUTH-003" ? 82 : 70,
-      limitations: [
-        "Deterministic demo analysis; no model was called.",
-        "Confidence is illustrative, not a calibrated probability.",
-        "All telemetry is simulated.",
-      ],
-    },
-    events.map((e) => e.id),
-  );
-}
 export async function analyzeAlert(actor: Actor, raw: unknown) {
   const { id } = z.object({ id: z.uuid() }).parse(raw);
   await rateLimit(`analysis:${actor.id}`, 12, 3600);
