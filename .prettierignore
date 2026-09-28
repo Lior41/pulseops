@@ -1,0 +1,9 @@
+node_modules
+.next
+src/generated
+package-lock.json
+public/world.json
+public/screenshots
+.local
+playwright-report
+test-results
