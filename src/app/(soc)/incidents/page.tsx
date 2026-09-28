@@ -1,13 +1,130 @@
 import Link from "next/link";
-import {z} from "zod";
-import {db} from "@/server/db";
-import {requireActor} from "@/server/auth/guard";
-import {PageHeader,SeverityBadge,StatusBadge,Empty,Field} from "@/components/soc-ui";
-import {Pagination} from "@/components/pagination";
-import {Button} from "@/components/ui/button";
-import {CreateIncident} from "@/features/incidents/incident-controls";
-import {incidentStatuses} from "@/lib/domain";
-import {humanize,dateTime} from "@/lib/utils";
-import {scalarParams,type SearchParams} from "@/lib/query";
-import type {Prisma} from "@/generated/prisma/client";
-export default async function Incidents({searchParams}:{searchParams:Promise<SearchParams>}){const actor=await requireActor();const params=await searchParams;const f=z.object({q:z.string().max(100).catch(""),status:z.enum(["",...incidentStatuses]).catch(""),page:z.coerce.number().int().min(1).max(10000).catch(1)}).parse(scalarParams(params));const where:Prisma.IncidentWhereInput={...(f.status?{status:f.status}:{}),...(f.q?{OR:[{title:{contains:f.q,mode:"insensitive"}},{reference:{contains:f.q,mode:"insensitive"}}]}:{})};const total=await db.incident.count({where});const page=Math.min(f.page,Math.max(1,Math.ceil(total/20)));const rows=await db.incident.findMany({where,include:{owner:{select:{name:true}},_count:{select:{events:true,comments:true,alerts:true}}},orderBy:[{createdAt:"desc"},{id:"desc"}],take:20,skip:(page-1)*20});return <><PageHeader eyebrow="Investigation workspace" title="Incidents" description="One case. Every signal, decision and action in context.">{actor.role!=="VIEWER"&&<CreateIncident initialOpen={params.create==="true"||params.create==="1"}/>}</PageHeader><form className="panel mb-5 flex flex-wrap items-end gap-3 p-4"><div className="min-w-48 flex-1"><Field label="Search incidents"><input name="q" className="field" defaultValue={f.q} placeholder="Case reference or title…" maxLength={100}/></Field></div><Field label="Status"><select className="field" name="status" defaultValue={f.status}><option value="">All statuses</option>{incidentStatuses.map(s=><option key={s} value={s}>{humanize(s)}</option>)}</select></Field><Button>Apply filters</Button></form><div className="panel overflow-hidden">{rows.length?<div className="table-wrap"><table className="data-table"><thead><tr><th>Incident</th><th>Severity</th><th>Owner</th><th>Status</th><th>Evidence</th><th>Created / UTC</th></tr></thead><tbody>{rows.map(i=><tr key={i.id}><td><Link className="font-medium hover:text-primary" href={`/incidents/${i.id}`}>{i.title}</Link><p className="mono mt-1 text-[10px] text-muted-foreground">{i.reference}</p></td><td><SeverityBadge severity={i.severity}/></td><td>{i.owner?.name??"Unassigned"}</td><td><StatusBadge status={i.status}/></td><td className="text-muted-foreground">{i._count.events} events · {i._count.alerts} alerts</td><td className="text-muted-foreground">{dateTime(i.createdAt)}</td></tr>)}</tbody></table></div>:<Empty title="No incidents found" description="Create a case or escalate an alert to start an investigation."/>}<Pagination path="/incidents" params={params} page={page} total={total}/></div></>;}
+import { z } from "zod";
+import { db } from "@/server/db";
+import { requireActor } from "@/server/auth/guard";
+import { PageHeader, SeverityBadge, StatusBadge, Empty, Field } from "@/components/soc-ui";
+import { Pagination } from "@/components/pagination";
+import { Button } from "@/components/ui/button";
+import { CreateIncident } from "@/features/incidents/incident-controls";
+import { incidentStatuses } from "@/lib/domain";
+import { humanize, dateTime } from "@/lib/utils";
+import { scalarParams, type SearchParams } from "@/lib/query";
+import type { Prisma } from "@/generated/prisma/client";
+export default async function Incidents({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const actor = await requireActor();
+  const params = await searchParams;
+  const f = z
+    .object({
+      q: z.string().max(100).catch(""),
+      status: z.enum(["", ...incidentStatuses]).catch(""),
+      page: z.coerce.number().int().min(1).max(10000).catch(1),
+    })
+    .parse(scalarParams(params));
+  const where: Prisma.IncidentWhereInput = {
+    ...(f.status ? { status: f.status } : {}),
+    ...(f.q
+      ? {
+          OR: [
+            { title: { contains: f.q, mode: "insensitive" } },
+            { reference: { contains: f.q, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+  const total = await db.incident.count({ where });
+  const page = Math.min(f.page, Math.max(1, Math.ceil(total / 20)));
+  const rows = await db.incident.findMany({
+    where,
+    include: {
+      owner: { select: { name: true } },
+      _count: { select: { events: true, comments: true, alerts: true } },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 20,
+    skip: (page - 1) * 20,
+  });
+  return (
+    <>
+      <PageHeader
+        eyebrow="Investigation workspace"
+        title="Incidents"
+        description="One case. Every signal, decision and action in context."
+      >
+        {actor.role !== "VIEWER" && (
+          <CreateIncident initialOpen={params.create === "true" || params.create === "1"} />
+        )}
+      </PageHeader>
+      <form className="panel mb-5 flex flex-wrap items-end gap-3 p-4">
+        <div className="min-w-48 flex-1">
+          <Field label="Search incidents">
+            <input
+              name="q"
+              className="field"
+              defaultValue={f.q}
+              placeholder="Case reference or title…"
+              maxLength={100}
+            />
+          </Field>
+        </div>
+        <Field label="Status">
+          <select className="field" name="status" defaultValue={f.status}>
+            <option value="">All statuses</option>
+            {incidentStatuses.map((s) => (
+              <option key={s} value={s}>
+                {humanize(s)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Button>Apply filters</Button>
+      </form>
+      <div className="panel overflow-hidden">
+        {rows.length ? (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Incident</th>
+                  <th>Severity</th>
+                  <th>Owner</th>
+                  <th>Status</th>
+                  <th>Evidence</th>
+                  <th>Created / UTC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((i) => (
+                  <tr key={i.id}>
+                    <td>
+                      <Link className="font-medium hover:text-primary" href={`/incidents/${i.id}`}>
+                        {i.title}
+                      </Link>
+                      <p className="mono mt-1 text-[10px] text-muted-foreground">{i.reference}</p>
+                    </td>
+                    <td>
+                      <SeverityBadge severity={i.severity} />
+                    </td>
+                    <td>{i.owner?.name ?? "Unassigned"}</td>
+                    <td>
+                      <StatusBadge status={i.status} />
+                    </td>
+                    <td className="text-muted-foreground">
+                      {i._count.events} events · {i._count.alerts} alerts
+                    </td>
+                    <td className="text-muted-foreground">{dateTime(i.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <Empty
+            title="No incidents found"
+            description="Create a case or escalate an alert to start an investigation."
+          />
+        )}
+        <Pagination path="/incidents" params={params} page={page} total={total} />
+      </div>
+    </>
+  );
+}

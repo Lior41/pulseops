@@ -1,5 +1,62 @@
-import {Activity,CheckCircle2,KeyRound} from "lucide-react";
-import {humanize,dateTime} from "@/lib/utils";
-import {SeverityBadge,Empty} from "@/components/soc-ui";
-import type {Severity} from "@/lib/domain";
-export function EventTimeline({events}:{events:{id:string;type:string;occurredAt:Date;severity:Severity;ipAddress:string|null;identity?:{name:string}|null;asset?:{hostname:string}|null}[]}){if(!events.length)return <Empty title="No linked events" description="Create this investigation from an alert to attach its evidence."/>;return <ol className="p-5">{events.map((event,i)=><li key={event.id} id={`event-${event.id}`} className="relative flex scroll-mt-5 gap-4 pb-6 last:pb-0">{i<events.length-1&&<span className="absolute bottom-0 left-[15px] top-8 w-px bg-border"/>}<span className="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full border bg-card text-muted-foreground">{event.type==="NORMAL_LOGIN"?<CheckCircle2 size={14} className="text-primary"/>:event.type==="FAILED_LOGIN"?<KeyRound size={14}/>:<Activity size={14}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-medium capitalize">{humanize(event.type)}</p><SeverityBadge severity={event.severity}/></div><p className="mono mt-1.5 text-[10px] text-muted-foreground">{dateTime(event.occurredAt)} · {event.occurredAt.toISOString().slice(17,19)}s</p><p className="mt-1 text-[11px] text-muted-foreground">{event.ipAddress??"No source IP"}{event.asset?` · ${event.asset.hostname}`:""}</p></div></li>)}</ol>;}
+import { Activity, CheckCircle2, KeyRound } from "lucide-react";
+import { humanize, dateTime } from "@/lib/utils";
+import { SeverityBadge, Empty } from "@/components/soc-ui";
+import type { Severity } from "@/lib/domain";
+export function EventTimeline({
+  events,
+}: {
+  events: {
+    id: string;
+    type: string;
+    occurredAt: Date;
+    severity: Severity;
+    ipAddress: string | null;
+    identity?: { name: string } | null;
+    asset?: { hostname: string } | null;
+  }[];
+}) {
+  if (!events.length)
+    return (
+      <Empty
+        title="No linked events"
+        description="Create this investigation from an alert to attach its evidence."
+      />
+    );
+  return (
+    <ol className="p-5">
+      {events.map((event, i) => (
+        <li
+          key={event.id}
+          id={`event-${event.id}`}
+          className="relative flex scroll-mt-5 gap-4 pb-6 last:pb-0"
+        >
+          {i < events.length - 1 && (
+            <span className="absolute bottom-0 left-[15px] top-8 w-px bg-border" />
+          )}
+          <span className="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full border bg-card text-muted-foreground">
+            {event.type === "NORMAL_LOGIN" ? (
+              <CheckCircle2 size={14} className="text-primary" />
+            ) : event.type === "FAILED_LOGIN" ? (
+              <KeyRound size={14} />
+            ) : (
+              <Activity size={14} />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-medium capitalize">{humanize(event.type)}</p>
+              <SeverityBadge severity={event.severity} />
+            </div>
+            <p className="mono mt-1.5 text-[10px] text-muted-foreground">
+              {dateTime(event.occurredAt)} · {event.occurredAt.toISOString().slice(17, 19)}s
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {event.ipAddress ?? "No source IP"}
+              {event.asset ? ` · ${event.asset.hostname}` : ""}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}

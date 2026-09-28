@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "prisma generate && next build",
-    "start": "next start",
+    "start": "node scripts/start.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
@@ -22,7 +22,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:local": "tsx scripts/local-db.ts",
     "simulate": "tsx scripts/simulate.ts",
-    "check": "npm run lint && npm run typecheck && npm test"
+    "check": "npm run lint && npm run typecheck && npm test",
+    "demo": "node scripts/demo.mjs",
+    "screenshots": "node scripts/capture.mjs"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.1",

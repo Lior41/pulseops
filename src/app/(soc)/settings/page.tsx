@@ -1,6 +1,123 @@
-import {db} from "@/server/db";
-import {requireActor} from "@/server/auth/guard";
-import {PageHeader,Panel} from "@/components/soc-ui";
-import {Preferences,OrganizationForm,RoleEditor,EndSession} from "@/features/settings/settings-form";
-import {z} from "zod";
-export default async function Settings(){const actor=await requireActor();const [account,org,users]=await Promise.all([db.user.findUniqueOrThrow({where:{id:actor.id}}),db.applicationSettings.findUnique({where:{id:"main"}}),actor.role==="ADMIN"?db.user.findMany({select:{id:true,name:true,email:true,role:true},orderBy:{name:"asc"}}):Promise.resolve([])]);const prefs=z.object({notifications:z.boolean().catch(true)}).parse(account.preferences??{});return <><PageHeader eyebrow="Workspace configuration" title="Settings" description="Account preferences, access controls and integration availability."/><div className="grid gap-6 xl:grid-cols-2"><Preferences name={actor.name} notifications={prefs.notifications}/><Panel title="Security" subtitle="Your current access"><div className="space-y-5 p-5"><dl className="space-y-4 text-sm"><div><dt className="eyebrow">Signed in as</dt><dd className="mt-2">{actor.email}</dd></div><div><dt className="eyebrow">Role</dt><dd className="mt-2">{actor.role}</dd></div></dl><p className="text-xs leading-relaxed text-muted-foreground">Sessions expire after four hours. Permissions are checked on the server for every protected action. Changing an account role revokes its existing sessions.</p><EndSession/><div className="border-t pt-4"><p className="text-xs font-medium">Multi-factor authentication</p><p className="mt-2 text-xs text-muted-foreground">Not implemented. This portfolio uses credentials authentication; an enterprise identity provider is planned for V2.</p></div></div></Panel><Panel title="SOC users" subtitle="Application access is separate from monitored identities">{actor.role==="ADMIN"?<div className="divide-y">{users.map(u=><div key={u.id} className="space-y-3 p-5"><div><p className="text-sm">{u.name}</p><p className="mt-1 text-xs text-muted-foreground">{u.email}</p></div><RoleEditor id={u.id} role={u.role}/></div>)}</div>:<p className="p-5 text-sm text-muted-foreground">Only administrators can view and change workspace roles. The public demo account is an analyst.</p>}</Panel><Panel title="Integrations" subtitle="Demo telemetry · no real systems connected"><div className="divide-y">{[["Telemetry simulator","Available","Synthetic events are generated locally. No network scanning or endpoint agent."],["AI Security Analyst","Demo mode","Structured local analysis with evidence references. External model requests are disabled."],["Slack / email / SIEM","Planned","No external messages or telemetry are sent. Integration connectors are not implemented."]].map(([name,status,description])=><div key={name} className="p-5"><div className="flex items-center justify-between gap-3"><p className="text-sm font-medium">{name}</p><span className="rounded border px-2 py-1 text-[10px] text-muted-foreground">{status}</span></div><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{description}</p></div>)}</div></Panel>{actor.role==="ADMIN"&&<Panel title="Organization"><OrganizationForm name={org?.organizationName??"Aster Labs"}/></Panel>}</div></>;}
+import { db } from "@/server/db";
+import { requireActor } from "@/server/auth/guard";
+import { PageHeader, Panel } from "@/components/soc-ui";
+import {
+  Preferences,
+  OrganizationForm,
+  RoleEditor,
+  EndSession,
+} from "@/features/settings/settings-form";
+import { z } from "zod";
+export default async function Settings() {
+  const actor = await requireActor();
+  const [account, org, users] = await Promise.all([
+    db.user.findUniqueOrThrow({ where: { id: actor.id } }),
+    db.applicationSettings.findUnique({ where: { id: "main" } }),
+    actor.role === "ADMIN"
+      ? db.user.findMany({
+          select: { id: true, name: true, email: true, role: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
+  const prefs = z
+    .object({ notifications: z.boolean().catch(true) })
+    .parse(account.preferences ?? {});
+  return (
+    <>
+      <PageHeader
+        eyebrow="Workspace configuration"
+        title="Settings"
+        description="Account preferences, access controls and integration availability."
+      />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Preferences name={actor.name} notifications={prefs.notifications} />
+        <Panel title="Security" subtitle="Your current access">
+          <div className="space-y-5 p-5">
+            <dl className="space-y-4 text-sm">
+              <div>
+                <dt className="eyebrow">Signed in as</dt>
+                <dd className="mt-2">{actor.email}</dd>
+              </div>
+              <div>
+                <dt className="eyebrow">Role</dt>
+                <dd className="mt-2">{actor.role}</dd>
+              </div>
+            </dl>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Sessions expire after four hours. Permissions are checked on the server for every
+              protected action. Changing an account role revokes its existing sessions.
+            </p>
+            <EndSession />
+            <div className="border-t pt-4">
+              <p className="text-xs font-medium">Multi-factor authentication</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Not implemented. This portfolio uses credentials authentication; an enterprise
+                identity provider is planned for V2.
+              </p>
+            </div>
+          </div>
+        </Panel>
+        <Panel
+          title="SOC users"
+          subtitle="Application access is separate from monitored identities"
+        >
+          {actor.role === "ADMIN" ? (
+            <div className="divide-y">
+              {users.map((u) => (
+                <div key={u.id} className="space-y-3 p-5">
+                  <div>
+                    <p className="text-sm">{u.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <RoleEditor id={u.id} role={u.role} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="p-5 text-sm text-muted-foreground">
+              Only administrators can view and change workspace roles. The public demo account is an
+              analyst.
+            </p>
+          )}
+        </Panel>
+        <Panel title="Integrations" subtitle="Demo telemetry · no real systems connected">
+          <div className="divide-y">
+            {[
+              [
+                "Telemetry simulator",
+                "Available",
+                "Synthetic events are generated locally. No network scanning or endpoint agent.",
+              ],
+              [
+                "AI Security Analyst",
+                "Demo mode",
+                "Structured local analysis with evidence references. External model requests are disabled.",
+              ],
+              [
+                "Slack / email / SIEM",
+                "Planned",
+                "No external messages or telemetry are sent. Integration connectors are not implemented.",
+              ],
+            ].map(([name, status, description]) => (
+              <div key={name} className="p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">{name}</p>
+                  <span className="rounded border px-2 py-1 text-[10px] text-muted-foreground">
+                    {status}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{description}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+        {actor.role === "ADMIN" && (
+          <Panel title="Organization">
+            <OrganizationForm name={org?.organizationName ?? "Aster Labs"} />
+          </Panel>
+        )}
+      </div>
+    </>
+  );
+}

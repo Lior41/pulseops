@@ -1,19 +1,188 @@
 "use client";
-import {useEffect,useRef,useState} from "react";
-import {Pause,Play,Radio,Search} from "lucide-react";
-import {z} from "zod";
-import {wireEventSchema,type WireEvent} from "@/lib/events";
-import {SeverityBadge,Panel,Empty} from "@/components/soc-ui";
-import {Button} from "@/components/ui/button";
-import {countryName} from "@/lib/geo";
-export function LiveFeed({initial,canSimulate,compact=false}:{initial:WireEvent[];canSimulate:boolean;compact?:boolean}){
-  const [rows,setRows]=useState(initial);const [paused,setPaused]=useState(false);const [status,setStatus]=useState("Connecting");const [q,setQ]=useState("");const [severity,setSeverity]=useState("");const [message,setMessage]=useState("");const cursor=useRef(initial[0]?.sequence??"0");
-  useEffect(()=>{if(paused)return;const source=new EventSource(`/api/events/stream?after=${cursor.current}`);source.onopen=()=>setStatus("Live");source.onerror=()=>setStatus("Reconnecting");source.addEventListener("telemetry",event=>{try{const row=wireEventSchema.parse(JSON.parse((event as MessageEvent).data));cursor.current=row.sequence;setRows(previous=>[row,...previous.filter(p=>p.id!==row.id)].slice(0,200));}catch{setMessage("An invalid event was discarded.");}});source.addEventListener("snapshot",event=>{try{const latest=z.array(wireEventSchema).parse(JSON.parse((event as MessageEvent).data));cursor.current=latest[0]?.sequence??cursor.current;setRows(latest);setMessage("A long gap was detected. The latest 50 events have been loaded.");}catch{setMessage("Could not reload the event snapshot.");}});source.addEventListener("unauthorized",()=>{setStatus("Session expired");source.close();});source.addEventListener("unavailable",()=>setStatus("Reconnecting"));return()=>source.close();},[paused]);
-  useEffect(()=>{if(!canSimulate||paused)return;const abort=new AbortController();async function generate(){try{const response=await fetch("/api/demo/tick",{method:"POST",signal:abort.signal});if(!response.ok&&response.status!==429)setMessage("Simulation is temporarily unavailable. Existing telemetry is still readable.");}catch{if(!abort.signal.aborted)setMessage("Simulation could not reach the server.");}}const timer=setInterval(()=>void generate(),5000);return()=>{clearInterval(timer);abort.abort();};},[canSimulate,paused]);
-  const filtered=rows.filter(e=>(!severity||e.severity===severity)&&`${e.type} ${e.identity?.email??""} ${e.ipAddress??""} ${e.countryCode??""}`.toLowerCase().includes(q.toLowerCase())).slice(0,compact?6:100);
-  return <Panel title="Live security feed" subtitle={compact?"Most recent signals across your environment":"Search and filters apply to the latest 200 streamed events."} action={<div className="flex items-center gap-3"><span role="status" className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><Radio size={11} className={!paused&&status==="Live"?"text-primary":""}/>{paused?"Paused":status}</span><Button variant="ghost" size="icon" aria-label={paused?"Resume feed":"Pause feed"} onClick={()=>setPaused(!paused)}>{paused?<Play size={13}/>:<Pause size={13}/>}</Button></div>}>
-    {!compact&&<div className="flex flex-wrap gap-3 border-b p-4"><div className="relative min-w-48 flex-1"><Search className="absolute left-3 top-3 text-muted-foreground" size={14}/><input className="field pl-9" aria-label="Search live events" placeholder="Search event, IP or identity..." value={q} onChange={e=>setQ(e.target.value)}/></div><select className="field w-auto" aria-label="Filter event severity" value={severity} onChange={e=>setSeverity(e.target.value)}><option value="">All severities</option>{["CRITICAL","HIGH","MEDIUM","LOW"].map(s=><option key={s}>{s}</option>)}</select></div>}
-    {message&&<p role="status" className="border-b px-5 py-3 text-xs text-amber-400">{message}</p>}
-    {filtered.length?<div className="table-wrap"><table className="data-table"><thead><tr><th>Time / UTC</th><th>Event</th><th>Severity</th><th>Identity</th>{!compact&&<><th>Source IP</th><th>Country</th></>}</tr></thead><tbody>{filtered.map(row=><tr key={row.id} className="enter"><td className="mono text-muted-foreground">{row.occurredAt.slice(11,19)}</td><td className="mono text-[10px]">{row.type}</td><td><SeverityBadge severity={row.severity}/></td><td className="text-muted-foreground">{row.identity?.email??"System"}</td>{!compact&&<><td className="mono">{row.ipAddress??"—"}</td><td>{countryName(row.countryCode)}</td></>}</tr>)}</tbody></table></div>:<Empty title="No matching signals" description="Try another search or resume the live feed."/>}
-  </Panel>;
+import { useEffect, useRef, useState } from "react";
+import { Pause, Play, Radio, Search } from "lucide-react";
+import { z } from "zod";
+import { wireEventSchema, type WireEvent } from "@/lib/events";
+import { SeverityBadge, Panel, Empty } from "@/components/soc-ui";
+import { Button } from "@/components/ui/button";
+import { countryName } from "@/lib/geo";
+export function LiveFeed({
+  initial,
+  canSimulate,
+  compact = false,
+}: {
+  initial: WireEvent[];
+  canSimulate: boolean;
+  compact?: boolean;
+}) {
+  const [rows, setRows] = useState(initial);
+  const [paused, setPaused] = useState(false);
+  const [status, setStatus] = useState("Connecting");
+  const [q, setQ] = useState("");
+  const [severity, setSeverity] = useState("");
+  const [message, setMessage] = useState("");
+  const cursor = useRef(initial[0]?.sequence ?? "0");
+  useEffect(() => {
+    if (paused) return;
+    const source = new EventSource(`/api/events/stream?after=${cursor.current}`);
+    source.onopen = () => setStatus("Live");
+    source.onerror = () => setStatus("Reconnecting");
+    source.addEventListener("telemetry", (event) => {
+      try {
+        const row = wireEventSchema.parse(JSON.parse((event as MessageEvent).data));
+        cursor.current = row.sequence;
+        setRows((previous) => [row, ...previous.filter((p) => p.id !== row.id)].slice(0, 200));
+      } catch {
+        setMessage("An invalid event was discarded.");
+      }
+    });
+    source.addEventListener("snapshot", (event) => {
+      try {
+        const latest = z.array(wireEventSchema).parse(JSON.parse((event as MessageEvent).data));
+        cursor.current = latest[0]?.sequence ?? cursor.current;
+        setRows(latest);
+        setMessage("A long gap was detected. The latest 50 events have been loaded.");
+      } catch {
+        setMessage("Could not reload the event snapshot.");
+      }
+    });
+    source.addEventListener("unauthorized", () => {
+      setStatus("Session expired");
+      source.close();
+    });
+    source.addEventListener("unavailable", () => setStatus("Reconnecting"));
+    return () => source.close();
+  }, [paused]);
+  useEffect(() => {
+    if (!canSimulate || paused) return;
+    const abort = new AbortController();
+    async function generate() {
+      try {
+        const response = await fetch("/api/demo/tick", { method: "POST", signal: abort.signal });
+        if (!response.ok && response.status !== 429)
+          setMessage(
+            "Simulation is temporarily unavailable. Existing telemetry is still readable.",
+          );
+      } catch {
+        if (!abort.signal.aborted) setMessage("Simulation could not reach the server.");
+      }
+    }
+    const timer = setInterval(() => void generate(), 5000);
+    return () => {
+      clearInterval(timer);
+      abort.abort();
+    };
+  }, [canSimulate, paused]);
+  const filtered = rows
+    .filter(
+      (e) =>
+        (!severity || e.severity === severity) &&
+        `${e.type} ${e.identity?.email ?? ""} ${e.ipAddress ?? ""} ${e.countryCode ?? ""}`
+          .toLowerCase()
+          .includes(q.toLowerCase()),
+    )
+    .slice(0, compact ? 6 : 100);
+  return (
+    <Panel
+      title="Live security feed"
+      subtitle={
+        compact
+          ? "Most recent signals across your environment"
+          : "Search and filters apply to the latest 200 streamed events."
+      }
+      action={
+        <div className="flex items-center gap-3">
+          <span
+            role="status"
+            className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+          >
+            <Radio size={11} className={!paused && status === "Live" ? "text-primary" : ""} />
+            {paused ? "Paused" : status}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={paused ? "Resume feed" : "Pause feed"}
+            onClick={() => setPaused(!paused)}
+          >
+            {paused ? <Play size={13} /> : <Pause size={13} />}
+          </Button>
+        </div>
+      }
+    >
+      {!compact && (
+        <div className="flex flex-wrap gap-3 border-b p-4">
+          <div className="relative min-w-48 flex-1">
+            <Search className="absolute left-3 top-3 text-muted-foreground" size={14} />
+            <input
+              className="field pl-9"
+              aria-label="Search live events"
+              placeholder="Search event, IP or identity..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <select
+            className="field w-auto"
+            aria-label="Filter event severity"
+            value={severity}
+            onChange={(e) => setSeverity(e.target.value)}
+          >
+            <option value="">All severities</option>
+            {["CRITICAL", "HIGH", "MEDIUM", "LOW"].map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {message && (
+        <p role="status" className="border-b px-5 py-3 text-xs text-amber-400">
+          {message}
+        </p>
+      )}
+      {filtered.length ? (
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Time / UTC</th>
+                <th>Event</th>
+                <th>Severity</th>
+                <th>Identity</th>
+                {!compact && (
+                  <>
+                    <th>Source IP</th>
+                    <th>Country</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((row) => (
+                <tr key={row.id} className="enter">
+                  <td className="mono text-muted-foreground">{row.occurredAt.slice(11, 19)}</td>
+                  <td className="mono text-[10px]">{row.type}</td>
+                  <td>
+                    <SeverityBadge severity={row.severity} />
+                  </td>
+                  <td className="text-muted-foreground">{row.identity?.email ?? "System"}</td>
+                  {!compact && (
+                    <>
+                      <td className="mono">{row.ipAddress ?? "—"}</td>
+                      <td>{countryName(row.countryCode)}</td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <Empty
+          title="No matching signals"
+          description="Try another search or resume the live feed."
+        />
+      )}
+    </Panel>
+  );
 }

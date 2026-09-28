@@ -1,20 +1,210 @@
 "use client";
-import {useState,useTransition} from "react";
-import {useRouter} from "next/navigation";
-import {toast} from "sonner";
-import {Plus} from "lucide-react";
-import {createIncidentAction,updateIncidentAction,addCommentAction} from "@/app/actions";
-import {Button} from "@/components/ui/button";
-import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogTrigger} from "@/components/ui/dialog";
-import {Field} from "@/components/soc-ui";
-import {humanize} from "@/lib/utils";
-import {severities,incidentStatuses} from "@/lib/domain";
-export function CreateIncident({initialOpen=false}:{initialOpen?:boolean}){
- const [open,setOpen]=useState(initialOpen);const [pending,start]=useTransition();const router=useRouter();const [error,setError]=useState("");
- return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button><Plus size={14}/>Create incident</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Create an investigation</DialogTitle><DialogDescription>Open a case and assign it to yourself. Creating from an alert also links its evidence.</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={e=>{e.preventDefault();const data=new FormData(e.currentTarget);start(async()=>{setError("");const result=await createIncidentAction(Object.fromEntries(data));if(!result.ok){setError(result.error);return;}setOpen(false);toast.success("Incident created");router.push(`/incidents/${result.data.id}`);});}}><Field label="Title"><input name="title" className="field" required minLength={5} maxLength={160}/></Field><Field label="Description"><textarea name="description" className="field min-h-28" required minLength={10} maxLength={3000}/></Field><Field label="Severity"><select name="severity" className="field" defaultValue="MEDIUM">{severities.map(s=><option key={s}>{s}</option>)}</select></Field>{error&&<p role="alert" className="text-sm text-rose-400">{error}</p>}<Button type="submit" disabled={pending}>{pending?"Creating…":"Create investigation"}</Button></form></DialogContent></Dialog>;
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Plus } from "lucide-react";
+import { createIncidentAction, updateIncidentAction, addCommentAction } from "@/app/actions";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Field } from "@/components/soc-ui";
+import { humanize } from "@/lib/utils";
+import { severities, incidentStatuses } from "@/lib/domain";
+export function CreateIncident({ initialOpen = false }: { initialOpen?: boolean }) {
+  const [open, setOpen] = useState(initialOpen);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const [error, setError] = useState("");
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus size={14} />
+          Create incident
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create an investigation</DialogTitle>
+          <DialogDescription>
+            Open a case and assign it to yourself. Creating from an alert also links its evidence.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const data = new FormData(e.currentTarget);
+            start(async () => {
+              setError("");
+              const result = await createIncidentAction(Object.fromEntries(data));
+              if (!result.ok) {
+                setError(result.error);
+                return;
+              }
+              setOpen(false);
+              toast.success("Incident created");
+              router.push(`/incidents/${result.data.id}`);
+            });
+          }}
+        >
+          <Field label="Title">
+            <input name="title" className="field" required minLength={5} maxLength={160} />
+          </Field>
+          <Field label="Description">
+            <textarea
+              name="description"
+              className="field min-h-28"
+              required
+              minLength={10}
+              maxLength={3000}
+            />
+          </Field>
+          <Field label="Severity">
+            <select name="severity" className="field" defaultValue="MEDIUM">
+              {severities.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </Field>
+          {error && (
+            <p role="alert" className="text-sm text-rose-400">
+              {error}
+            </p>
+          )}
+          <Button type="submit" disabled={pending}>
+            {pending ? "Creating…" : "Create investigation"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
-export function IncidentControls({id,version,status,ownerId,owners,summary}:{id:string;version:number;status:string;ownerId:string|null;owners:{id:string;name:string}[];summary:string|null}){
- const [pending,start]=useTransition();const [error,setError]=useState("");const router=useRouter();
- return <form key={version} className="space-y-4 p-5" onSubmit={e=>{e.preventDefault();const data=new FormData(e.currentTarget);start(async()=>{setError("");const result=await updateIncidentAction({...Object.fromEntries(data),id,version});if(!result.ok){setError(result.error);return;}toast.success("Investigation updated");router.refresh();});}}><Field label="Status"><select name="status" className="field" defaultValue={status}>{incidentStatuses.map(s=><option key={s} value={s}>{humanize(s)}</option>)}</select></Field><Field label="Case owner"><select name="ownerId" className="field" defaultValue={ownerId??owners[0]?.id}>{owners.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></Field><Field label="Resolution summary (required to resolve)"><textarea className="field min-h-24" name="summary" defaultValue={summary??""} maxLength={2000}/></Field><p className="text-xs leading-relaxed text-muted-foreground">Closing a case preserves its evidence. Review and resolve linked alerts separately.</p>{error&&<p role="alert" className="text-xs text-rose-400">{error}</p>}<Button type="submit" disabled={pending}>{pending?"Saving…":"Save investigation"}</Button></form>;
+export function IncidentControls({
+  id,
+  version,
+  status,
+  ownerId,
+  owners,
+  summary,
+}: {
+  id: string;
+  version: number;
+  status: string;
+  ownerId: string | null;
+  owners: { id: string; name: string }[];
+  summary: string | null;
+}) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState("");
+  const router = useRouter();
+  return (
+    <form
+      key={version}
+      className="space-y-4 p-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const data = new FormData(e.currentTarget);
+        start(async () => {
+          setError("");
+          const result = await updateIncidentAction({ ...Object.fromEntries(data), id, version });
+          if (!result.ok) {
+            setError(result.error);
+            return;
+          }
+          toast.success("Investigation updated");
+          router.refresh();
+        });
+      }}
+    >
+      <Field label="Status">
+        <select name="status" className="field" defaultValue={status}>
+          {incidentStatuses.map((s) => (
+            <option key={s} value={s}>
+              {humanize(s)}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Case owner">
+        <select name="ownerId" className="field" defaultValue={ownerId ?? owners[0]?.id}>
+          {owners.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Resolution summary (required to resolve)">
+        <textarea
+          className="field min-h-24"
+          name="summary"
+          defaultValue={summary ?? ""}
+          maxLength={2000}
+        />
+      </Field>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Closing a case preserves its evidence. Review and resolve linked alerts separately.
+      </p>
+      {error && (
+        <p role="alert" className="text-xs text-rose-400">
+          {error}
+        </p>
+      )}
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save investigation"}
+      </Button>
+    </form>
+  );
 }
-export function CommentForm({incidentId}:{incidentId:string}){const [body,setBody]=useState("");const [pending,start]=useTransition();const [error,setError]=useState("");const router=useRouter();return <form className="space-y-3 border-t p-5" onSubmit={e=>{e.preventDefault();start(async()=>{setError("");const result=await addCommentAction({incidentId,body});if(!result.ok){setError(result.error);return;}setBody("");toast.success("Note added");router.refresh();});}}><Field label="Investigation note"><textarea value={body} onChange={e=>setBody(e.target.value)} className="field min-h-24" placeholder="Document evidence, decisions and next steps…" required minLength={3} maxLength={3000}/></Field>{error&&<p role="alert" className="text-xs text-rose-400">{error}</p>}<Button type="submit" disabled={pending}>{pending?"Saving…":"Add note"}</Button></form>;}
+export function CommentForm({ incidentId }: { incidentId: string }) {
+  const [body, setBody] = useState("");
+  const [pending, start] = useTransition();
+  const [error, setError] = useState("");
+  const router = useRouter();
+  return (
+    <form
+      className="space-y-3 border-t p-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        start(async () => {
+          setError("");
+          const result = await addCommentAction({ incidentId, body });
+          if (!result.ok) {
+            setError(result.error);
+            return;
+          }
+          setBody("");
+          toast.success("Note added");
+          router.refresh();
+        });
+      }}
+    >
+      <Field label="Investigation note">
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          className="field min-h-24"
+          placeholder="Document evidence, decisions and next steps…"
+          required
+          minLength={3}
+          maxLength={3000}
+        />
+      </Field>
+      {error && (
+        <p role="alert" className="text-xs text-rose-400">
+          {error}
+        </p>
+      )}
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Add note"}
+      </Button>
+    </form>
+  );
+}

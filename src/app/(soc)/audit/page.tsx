@@ -1,8 +1,85 @@
-import {db} from "@/server/db";
-import {requireActor} from "@/server/auth/guard";
-import {PageHeader,Empty} from "@/components/soc-ui";
-import {Pagination} from "@/components/pagination";
-import {dateTime,humanize} from "@/lib/utils";
-import {scalarParams,type SearchParams} from "@/lib/query";
-import {z} from "zod";
-export default async function Audit({searchParams}:{searchParams:Promise<SearchParams>}){const actor=await requireActor();if(actor.role!=="ADMIN")return <><PageHeader eyebrow="Access restricted" title="Administrator access required" description="Audit logs are available to administrators. Your current session has read-only access to this explanation."/></>;const params=await searchParams;const requested=z.coerce.number().int().positive().max(10000).catch(1).parse(scalarParams(params).page);const total=await db.auditLog.count();const page=Math.min(requested,Math.max(1,Math.ceil(total/30)));const rows=await db.auditLog.findMany({include:{actor:{select:{name:true,email:true}}},orderBy:[{createdAt:"desc"},{id:"desc"}],skip:(page-1)*30,take:30});return <><PageHeader eyebrow="Accountability" title="Audit trail" description="Authentication, investigations and permission changes, recorded by the application."/><div className="panel overflow-hidden"><div className="table-wrap"><table className="data-table"><thead><tr><th>Actor</th><th>Action</th><th>Resource</th><th>Date / UTC</th><th>IP</th></tr></thead><tbody>{rows.map(a=><tr key={a.id}><td>{a.actor?.name??"Detection engine"}<p className="mt-1 text-[10px] text-muted-foreground">{a.actor?.email??"System action"}</p></td><td className="capitalize">{humanize(a.action)}</td><td><p>{a.resourceType}</p><p className="mono mt-1 text-[10px] text-muted-foreground">{a.resourceId}</p></td><td>{dateTime(a.createdAt)}</td><td className="mono">{a.ipAddress??"Not collected"}</td></tr>)}</tbody></table></div>{!rows.length&&<Empty/>}<Pagination path="/audit" params={params} page={page} total={total} pageSize={30}/></div><p className="mt-4 text-xs text-muted-foreground">Application audit records are append-only through the UI. Database administrators can still modify them; this is not a tamper-proof archive.</p></>;}
+import { db } from "@/server/db";
+import { requireActor } from "@/server/auth/guard";
+import { PageHeader, Empty } from "@/components/soc-ui";
+import { Pagination } from "@/components/pagination";
+import { dateTime, humanize } from "@/lib/utils";
+import { scalarParams, type SearchParams } from "@/lib/query";
+import { z } from "zod";
+export default async function Audit({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const actor = await requireActor();
+  if (actor.role !== "ADMIN")
+    return (
+      <>
+        <PageHeader
+          eyebrow="Access restricted"
+          title="Administrator access required"
+          description="Audit logs are available to administrators. Your current session has read-only access to this explanation."
+        />
+      </>
+    );
+  const params = await searchParams;
+  const requested = z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(10000)
+    .catch(1)
+    .parse(scalarParams(params).page);
+  const total = await db.auditLog.count();
+  const page = Math.min(requested, Math.max(1, Math.ceil(total / 30)));
+  const rows = await db.auditLog.findMany({
+    include: { actor: { select: { name: true, email: true } } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * 30,
+    take: 30,
+  });
+  return (
+    <>
+      <PageHeader
+        eyebrow="Accountability"
+        title="Audit trail"
+        description="Authentication, investigations and permission changes, recorded by the application."
+      />
+      <div className="panel overflow-hidden">
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Actor</th>
+                <th>Action</th>
+                <th>Resource</th>
+                <th>Date / UTC</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((a) => (
+                <tr key={a.id}>
+                  <td>
+                    {a.actor?.name ?? "Detection engine"}
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {a.actor?.email ?? "System action"}
+                    </p>
+                  </td>
+                  <td className="capitalize">{humanize(a.action)}</td>
+                  <td>
+                    <p>{a.resourceType}</p>
+                    <p className="mono mt-1 text-[10px] text-muted-foreground">{a.resourceId}</p>
+                  </td>
+                  <td>{dateTime(a.createdAt)}</td>
+                  <td className="mono">{a.ipAddress ?? "Not collected"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!rows.length && <Empty />}
+        <Pagination path="/audit" params={params} page={page} total={total} pageSize={30} />
+      </div>
+      <p className="mt-4 text-xs text-muted-foreground">
+        Application audit records are append-only through the UI. Database administrators can still
+        modify them; this is not a tamper-proof archive.
+      </p>
+    </>
+  );
+}
