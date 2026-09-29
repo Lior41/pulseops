@@ -4,7 +4,7 @@ Prepared deployment paths, not a claim of an already published service. Use only
 
 ## Vercel + remote PostgreSQL
 
-1. Create a GitHub repository from this project and push the existing commits. Enable branch protection and require the Quality workflow before merging.
+1. Use the published [Lior41/pulseops repository](https://github.com/Lior41/pulseops), or push a fork to your own account. Before adopting a pull-request release workflow, enable branch protection and require the Quality workflow before merging; these repository protections are not configured automatically.
 2. Provision a PostgreSQL 17-compatible database in the same region as the application. Use a dedicated demo database and the provider's TLS requirements. The pg adapter uses a small pool per instance; use the provider's pooled runtime URL if recommended.
 3. Import the repository into Vercel with the Next.js preset, Node.js 24 and build command `npm run build`. This regenerates Prisma Client before each build, avoiding stale generated clients in cached installs. See [Prisma deployment guidance](https://www.prisma.io/docs/orm/prisma-client/deployment/serverless/deploy-to-vercel).
 4. Add private environment variables in Vercel: `DATABASE_URL`, a random `AUTH_SECRET`, `AUTH_URL=https://your-final-domain`, `AUTH_TRUST_HOST=true`, `DEMO_MODE=true` and `DEMO_PASSWORD`. The deployment must be reachable only through the configured trusted host/proxy. Never put database URLs or secrets in `NEXT_PUBLIC_*` variables.

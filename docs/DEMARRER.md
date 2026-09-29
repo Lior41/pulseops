@@ -15,4 +15,4 @@ L'analyse est marquée DEMO : elle est structurée et enregistrée, mais aucun f
 
 ## Pour préparer un entretien
 
-Lis ARCHITECTURE.md, puis INTERVIEW.md. Rejoue toi-même le parcours et ouvre le test de détection. Le dépôt est local et prêt à être publié après vérification des limites indiquées dans VALIDATION.md ; aucun compte GitHub ni déploiement Vercel n'a été créé à ta place.
+Lis ARCHITECTURE.md, puis INTERVIEW.md. Rejoue toi-même le parcours et ouvre le test de détection. Le code est publié dans le dépôt public [Lior41/pulseops](https://github.com/Lior41/pulseops). Les résultats des contrôles automatiques sont disponibles dans [GitHub Actions](https://github.com/Lior41/pulseops/actions). Consulte VALIDATION.md pour les vérifications effectuées et leurs limites. L'application n'est pas encore déployée sur Vercel : GitHub héberge le code, tandis que `npm run demo` lance l'application sur ton Mac.

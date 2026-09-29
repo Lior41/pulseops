@@ -4,6 +4,8 @@
 
 A defensive SOC portfolio application: follow a signal from synthetic telemetry to an explainable detection, a structured assessment and a documented investigation.
 
+[![Quality workflow](https://github.com/Lior41/pulseops/actions/workflows/ci.yml/badge.svg)](https://github.com/Lior41/pulseops/actions/workflows/ci.yml)
+
 ![Next.js](https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white) ![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma) ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white) ![Tests](https://img.shields.io/badge/Tests-Vitest%20%2B%20Playwright-6E9F18)
 
 > All telemetry is fictional. The currently enabled analyst is a **clearly labelled local demo**; no external language model is called. Test execution status and deployment limitations are documented in [Validation](docs/VALIDATION.md).
@@ -203,7 +205,7 @@ docs/           architecture, deployment, validation and interview guide
 
 ## Deployment
 
-Vercel with a compatible remote PostgreSQL database is documented in [DEPLOYMENT.md](docs/DEPLOYMENT.md). Schema changes are applied explicitly before promotion. The browser-driven demo simulator works with short-lived SSE functions; no always-running worker is assumed on Vercel. A live deployment and GitHub remote still need to be created by the repository owner.
+The source is published at [Lior41/pulseops](https://github.com/Lior41/pulseops). Vercel with a compatible remote PostgreSQL database is documented in [DEPLOYMENT.md](docs/DEPLOYMENT.md). Schema changes are applied explicitly before promotion. The browser-driven demo simulator works with short-lived SSE functions; no always-running worker is assumed on Vercel. A live application deployment remains to be configured.
 
 ## Roadmap
 
